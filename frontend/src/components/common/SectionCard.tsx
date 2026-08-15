@@ -22,12 +22,16 @@ export function SectionCard({
       } ${className}`.trim()}
     >
       <header
-        className={`flex shrink-0 items-center justify-between gap-3 ${
-          compact ? 'mb-3' : 'mb-4 md:mb-5'
+        className={`flex shrink-0 items-center justify-between gap-3 border-b border-border ${
+          compact ? 'mb-3 pb-2.5' : 'mb-4 pb-3 md:mb-5'
         }`}
       >
-        <h2 className="text-lg font-semibold tracking-tight text-text">
-          {title}
+        <h2 className="flex min-w-0 items-center gap-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-text">
+          <span
+            className="h-4 w-1 shrink-0 rounded-full bg-accent"
+            aria-hidden="true"
+          />
+          <span className="truncate">{title}</span>
         </h2>
         {action}
       </header>

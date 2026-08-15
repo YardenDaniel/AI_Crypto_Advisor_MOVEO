@@ -122,6 +122,41 @@ describe('prices', () => {
     expect(section('Prices').getByText('Was this useful?')).toBeInTheDocument()
   })
 
+  it('shows how fresh the provider price data is', async () => {
+    // Fixture BTC reports last_updated_at 1_710_000_000 (unix seconds).
+    const nowSpy = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(1_710_000_000_000 + 5 * 60_000)
+
+    try {
+      renderApp('/')
+      await findDashboard()
+
+      expect(await section('Prices').findByText('BTC')).toBeInTheDocument()
+      expect(
+        section('Prices').getByText('Updated 5 min ago'),
+      ).toBeInTheDocument()
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+
+  it('omits the freshness label when the provider sends no timestamps', async () => {
+    vi.mocked(getCoinPrices).mockResolvedValue({
+      ...pricesResponse,
+      prices: pricesResponse.prices.map((price) => ({
+        ...price,
+        last_updated_at: null,
+      })),
+    })
+
+    renderApp('/')
+    await findDashboard()
+
+    expect(await section('Prices').findByText('BTC')).toBeInTheDocument()
+    expect(section('Prices').queryByText(/^Updated/)).not.toBeInTheDocument()
+  })
+
   it('shows a recoverable prices error with Retry', async () => {
     const event = userEvent.setup()
     vi.mocked(getCoinPrices)
@@ -236,6 +271,63 @@ describe('meme', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('HODL through the dip')).toBeInTheDocument()
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Enlarge meme/ }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('opens an enlarged view of the meme and closes it with the close button', async () => {
+    const event = userEvent.setup()
+
+    renderApp('/')
+    await findDashboard()
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await event.click(
+      await screen.findByRole('button', {
+        name: 'Enlarge meme: HODL through the dip',
+      }),
+    )
+
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).getByRole('img', { name: 'HODL through the dip' }),
+    ).toHaveAttribute('src', '/memes/meme1.jpeg')
+
+    await event.click(
+      within(dialog).getByRole('button', { name: 'Close image' }),
+    )
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('closes the enlarged meme with Escape or a click outside it', async () => {
+    const event = userEvent.setup()
+
+    renderApp('/')
+    await findDashboard()
+
+    const trigger = await screen.findByRole('button', {
+      name: 'Enlarge meme: HODL through the dip',
+    })
+
+    await event.click(trigger)
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+
+    await event.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    await event.click(trigger)
+    const reopened = await screen.findByRole('dialog')
+
+    await event.click(reopened.parentElement as HTMLElement)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    // Still on the dashboard, no navigation happened.
+    expect(
+      screen.getByRole('heading', { name: 'Crypto Meme' }),
+    ).toBeInTheDocument()
   })
 })
 
@@ -315,9 +407,11 @@ describe('voting', () => {
     )
 
     expect(submitVote).toHaveBeenCalledWith(10, { value: 'up' })
-    expect(
-      await section('Prices').findByText('You marked this as useful'),
-    ).toBeInTheDocument()
+    await vi.waitFor(() => {
+      expect(
+        section('Prices').getByRole('button', { name: 'Mark as useful' }),
+      ).toHaveAttribute('aria-pressed', 'true')
+    })
     expect(
       section('Prices').getByRole('button', { name: 'Mark as useful' }),
     ).toBeDisabled()
@@ -342,9 +436,13 @@ describe('voting', () => {
     )
 
     expect(submitVote).toHaveBeenCalledWith(30, { value: 'down' })
-    expect(
-      await section('Crypto Meme').findByText('You marked this as not useful'),
-    ).toBeInTheDocument()
+    await vi.waitFor(() => {
+      expect(
+        section('Crypto Meme').getByRole('button', {
+          name: 'Mark as not useful',
+        }),
+      ).toHaveAttribute('aria-pressed', 'true')
+    })
   })
 
   it('prevents a duplicate submission while a vote is pending', async () => {
@@ -370,9 +468,11 @@ describe('voting', () => {
     expect(submitVote).toHaveBeenCalledOnce()
 
     resolveVote?.({ id: 10, vote: 'up', can_vote: false })
-    expect(
-      await section('Prices').findByText('You marked this as useful'),
-    ).toBeInTheDocument()
+    await vi.waitFor(() => {
+      expect(
+        section('Prices').getByRole('button', { name: 'Mark as useful' }),
+      ).toHaveAttribute('aria-pressed', 'true')
+    })
   })
 
   it('does not update the UI when voting fails', async () => {
@@ -393,7 +493,7 @@ describe('voting', () => {
     ).toBeEnabled()
   })
 
-  it('does not allow voting again after the backend returns can_vote false', async () => {
+  it('hides the feedback area when the backend returns can_vote false', async () => {
     vi.mocked(getCoinPrices).mockResolvedValue({
       ...pricesResponse,
       feedback: { id: 10, vote: 'down', can_vote: false },
@@ -404,11 +504,14 @@ describe('voting', () => {
     expect(await section('Prices').findByText('BTC')).toBeInTheDocument()
 
     expect(
-      section('Prices').getByText('You marked this as not useful'),
-    ).toBeInTheDocument()
+      section('Prices').queryByText('Was this useful?'),
+    ).not.toBeInTheDocument()
     expect(
-      section('Prices').getByRole('button', { name: 'Mark as useful' }),
-    ).toBeDisabled()
+      section('Prices').queryByText('Thanks for your feedback!'),
+    ).not.toBeInTheDocument()
+    expect(
+      section('Prices').queryByRole('button', { name: 'Mark as useful' }),
+    ).not.toBeInTheDocument()
   })
 })
 
