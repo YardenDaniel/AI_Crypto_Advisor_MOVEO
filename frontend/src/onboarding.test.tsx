@@ -6,7 +6,7 @@ import { createPreferences, getPreferences } from './api/preferences'
 import { ApiError } from './api/errors'
 import { resetAuthSessionCache } from './context/AuthContext'
 import { PREFERENCES_QUERY_KEY } from './hooks/usePreferences'
-import { renderApp } from './test/renderApp'
+import { findDashboard, renderApp } from './test/renderApp'
 import type { Preference } from './types/preferences'
 
 vi.mock('./api/auth', () => ({
@@ -67,8 +67,8 @@ describe('preference gate', () => {
 
     renderApp('/')
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
-    expect(screen.getByText(/Your preferences are saved/)).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Prices' })).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: /Personalize your daily briefing/ }),
     ).not.toBeInTheDocument()
@@ -82,7 +82,9 @@ describe('preference gate', () => {
         name: 'Personalize your daily briefing',
       }),
     ).toBeInTheDocument()
-    expect(screen.queryByText('Welcome, Ada')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Daily briefing' }),
+    ).not.toBeInTheDocument()
   })
 
   it('redirects a completed user away from /onboarding', async () => {
@@ -90,7 +92,7 @@ describe('preference gate', () => {
 
     renderApp('/onboarding')
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: /Personalize your daily briefing/ }),
     ).not.toBeInTheDocument()
@@ -184,8 +186,8 @@ describe('onboarding submit', () => {
     expect(queryClient.getQueryData(PREFERENCES_QUERY_KEY)).toEqual(
       savedPreferences,
     )
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
-    expect(screen.getByText(/Dashboard coming next/)).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Prices' })).toBeInTheDocument()
   })
 
   it('treats 409 as already onboarded and continues to home', async () => {
@@ -201,7 +203,7 @@ describe('onboarding submit', () => {
 
     await completeWizard(event)
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -222,7 +224,9 @@ describe('onboarding submit', () => {
     expect(
       screen.getByRole('button', { name: 'Finish setup' }),
     ).toBeInTheDocument()
-    expect(screen.queryByText('Welcome, Ada')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Daily briefing' }),
+    ).not.toBeInTheDocument()
   })
 })
 
