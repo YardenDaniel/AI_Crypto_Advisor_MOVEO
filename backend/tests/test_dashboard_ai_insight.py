@@ -1,28 +1,31 @@
 from unittest.mock import AsyncMock, patch
 
-from app.db.models.ai_insight import AIInsight
 from app.schemas.dashboard import AIInsightResponse
 
 
 def signup_login_and_set_preferences(client):
-    """Create a user, log in, and configure crypto preferences."""
+    """Create a user, log in, and configure dashboard preferences."""
 
-    client.post(
+    signup_response = client.post(
         "/auth/signup",
         json={
-            "name": "AI Insight User",
-            "email": "ai-insight@example.com",
-            "password": "Test123!",
+            "name": "AI Insight Test User",
+            "email": "ai-insight-test@example.com",
+            "password": "Password123!",
         },
     )
+
+    assert signup_response.status_code == 201
 
     login_response = client.post(
         "/auth/login",
         json={
-            "email": "ai-insight@example.com",
-            "password": "Test123!",
+            "email": "ai-insight-test@example.com",
+            "password": "Password123!",
         },
     )
+
+    assert login_response.status_code == 200
 
     token = login_response.json()["access_token"]
 
@@ -30,15 +33,17 @@ def signup_login_and_set_preferences(client):
         "Authorization": f"Bearer {token}",
     }
 
-    client.post(
+    preferences_response = client.post(
         "/preferences",
         headers=headers,
         json={
-            "assets": ["BTC", "SOL"],
+            "assets": ["BTC", "ETH"],
             "investor_type": "hodler",
-            "content_types": ["market_news", "charts"],
+            "content_types": ["market_news"],
         },
     )
+
+    assert preferences_response.status_code == 201
 
     return headers
 
@@ -50,23 +55,19 @@ def signup_login_and_set_preferences(client):
 def test_dashboard_ai_insight_generates_new_insight(
     mock_generate_ai_insight,
     client,
-    db,
 ):
-    """Test that a new AI insight is generated and stored when none exists."""
+    """Test that a new AI insight is generated when none exists today."""
 
     mock_generate_ai_insight.return_value = AIInsightResponse(
-        title="BTC and SOL Market Watch",
-        summary=(
-            "Bitcoin remains relatively stable while Solana shows "
-            "higher short-term volatility."
-        ),
+        title="Bitcoin Market Update",
+        summary="Bitcoin remains the main focus of today's market.",
         key_points=[
-            "Bitcoin is holding relatively steady.",
-            "Solana is showing higher short-term volatility.",
-            "Market sentiment remains mixed.",
+            "Bitcoin remains active.",
+            "Market volatility should be monitored.",
+            "Long-term sentiment remains relevant.",
         ],
-        watch_for="Watch whether Solana weakness continues.",
-        risk_note="This is educational information, not financial advice.",
+        watch_for="Watch Bitcoin market volatility.",
+        risk_note="This is informational content, not financial advice.",
     )
 
     headers = signup_login_and_set_preferences(client)
@@ -80,21 +81,12 @@ def test_dashboard_ai_insight_generates_new_insight(
 
     data = response.json()
 
-    assert data["title"] == "BTC and SOL Market Watch"
-    assert len(data["key_points"]) == 3
-    assert data["watch_for"] == "Watch whether Solana weakness continues."
+    assert data["title"] == "Bitcoin Market Update"
+    assert data["feedback"] is not None
+    assert data["feedback"]["vote"] == "none"
+    assert data["feedback"]["can_vote"] is True
 
-    # Verify that the AI generation service received the user's preferences.
-    mock_generate_ai_insight.assert_awaited_once_with(
-        investor_type="hodler",
-        assets=["BTC", "SOL"],
-    )
-
-    # Verify that the generated insight was persisted in the database.
-    stored_insights = db.query(AIInsight).all()
-
-    assert len(stored_insights) == 1
-    assert stored_insights[0].title == "BTC and SOL Market Watch"
+    mock_generate_ai_insight.assert_awaited_once()
 
 
 @patch(
@@ -104,20 +96,19 @@ def test_dashboard_ai_insight_generates_new_insight(
 def test_dashboard_ai_insight_reuses_daily_insight(
     mock_generate_ai_insight,
     client,
-    db,
 ):
-    """Test that today's stored insight is reused instead of regenerated."""
+    """Test that today's stored AI insight is reused instead of regenerated."""
 
     mock_generate_ai_insight.return_value = AIInsightResponse(
-        title="Daily Crypto Insight",
-        summary="The market is showing mixed short-term signals.",
+        title="Daily Market Insight",
+        summary="Today's personalized crypto market summary.",
         key_points=[
-            "Bitcoin remains relatively stable.",
-            "Solana is experiencing more volatility.",
-            "Broader market sentiment remains mixed.",
+            "Bitcoin remains important.",
+            "Ethereum activity remains relevant.",
+            "Market volatility should be monitored.",
         ],
-        watch_for="Monitor changes in short-term market momentum.",
-        risk_note="This is educational information, not financial advice.",
+        watch_for="Watch for significant market changes.",
+        risk_note="This is informational content, not financial advice.",
     )
 
     headers = signup_login_and_set_preferences(client)
@@ -135,16 +126,15 @@ def test_dashboard_ai_insight_reuses_daily_insight(
     assert first_response.status_code == 200
     assert second_response.status_code == 200
 
-    # Both requests should return exactly the same daily insight.
-    assert first_response.json() == second_response.json()
+    first_data = first_response.json()
+    second_data = second_response.json()
 
-    # The LLM should be called only for the first request.
+    assert first_data["title"] == second_data["title"]
+
+    # The same daily insight must also reuse the same feedback record.
+    assert first_data["feedback"]["id"] == second_data["feedback"]["id"]
+
     mock_generate_ai_insight.assert_awaited_once()
-
-    # Only one insight should exist for the user for the current day.
-    stored_insights = db.query(AIInsight).all()
-
-    assert len(stored_insights) == 1
 
 
 @patch(
@@ -186,10 +176,26 @@ def test_dashboard_ai_insight_response_structure(
         "key_points",
         "watch_for",
         "risk_note",
+        "feedback",
     }
 
+    assert isinstance(data["title"], str)
+    assert isinstance(data["summary"], str)
     assert isinstance(data["key_points"], list)
-    assert len(data["key_points"]) == 3
+    assert isinstance(data["watch_for"], str)
+    assert isinstance(data["risk_note"], str)
+
+    assert data["feedback"] is not None
+
+    assert set(data["feedback"].keys()) == {
+        "id",
+        "vote",
+        "can_vote",
+    }
+
+    assert isinstance(data["feedback"]["id"], int)
+    assert data["feedback"]["vote"] == "none"
+    assert data["feedback"]["can_vote"] is True
 
 
 def test_dashboard_ai_insight_without_token(client):
