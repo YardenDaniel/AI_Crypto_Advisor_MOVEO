@@ -2,10 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, apiRequest, resolveApiBaseUrl } from './client'
 import { parseApiError } from './errors'
 import { login, logout } from './auth'
+import {
+  resetUnauthorizedHandling,
+  setUnauthorizedHandler,
+} from './unauthorized'
 
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
+  resetUnauthorizedHandling()
+  setUnauthorizedHandler(null)
 })
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -136,6 +142,39 @@ describe('apiRequest', () => {
 
     await expect(logout()).resolves.toBeUndefined()
     expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:8000/auth/logout')
+  })
+
+  it('notifies once when authenticated requests return 401', async () => {
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ detail: 'Not authenticated' }, 401)),
+    )
+
+    await Promise.allSettled([
+      apiRequest('/dashboard/prices'),
+      apiRequest('/dashboard/news'),
+      apiRequest('/preferences'),
+    ])
+
+    expect(onUnauthorized).toHaveBeenCalledOnce()
+  })
+
+  it('does not treat login 401 as an expired session', async () => {
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({ detail: 'Invalid email or password' }, 401),
+      ),
+    )
+
+    await expect(
+      login({ email: 'ada@example.com', password: 'wrong' }),
+    ).rejects.toBeInstanceOf(ApiError)
+    expect(onUnauthorized).not.toHaveBeenCalled()
   })
 })
 
