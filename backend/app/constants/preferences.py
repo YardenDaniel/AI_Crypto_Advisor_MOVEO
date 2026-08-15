@@ -18,10 +18,13 @@ class ContentType(str, Enum):
     FUN = "fun"
 
 
-SUPPORTED_ASSETS = [
-    "BTC",
-    "ETH",
-    "SOL",
-    "XRP",
-    "ADA",
-]
+
+COINGECKO_ASSET_IDS = {
+    "BTC": "bitcoin",
+    "ETH": "ethereum",
+    "SOL": "solana",
+    "XRP": "ripple",
+    "ADA": "cardano",
+}
+
+SUPPORTED_ASSETS = list(COINGECKO_ASSET_IDS.keys())
