@@ -16,9 +16,11 @@ class Settings(BaseSettings):
     coingecko_base_url: str
     coingecko_api_key: str
 
-    # CryptoPanic API configuration
-    cryptopanic_base_url: str
-    cryptopanic_api_key: str
+    # CryptoPanic API configuration.
+    # Optional: not used by the current static Market News implementation,
+    # but kept configurable for potential future use as a news provider.
+    cryptopanic_base_url: str | None = None
+    cryptopanic_api_key: str | None = None
 
     # Reddit scraping configuration
     reddit_meme_url: str

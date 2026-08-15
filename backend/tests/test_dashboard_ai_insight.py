@@ -1,6 +1,32 @@
+import json
 from unittest.mock import AsyncMock, patch
 
+import httpx
+
 from app.schemas.dashboard import AIInsightResponse
+
+
+GENERATE_INSIGHT = (
+    "app.services.dashboard.ai_insight_service."
+    "OpenRouterClient.generate_insight"
+)
+GET_COIN_PRICES = (
+    "app.services.dashboard.ai_insight_service.get_coin_prices"
+)
+
+VALID_INSIGHT_JSON = json.dumps(
+    {
+        "title": "Resilient Market Insight",
+        "summary": "Insight generated even without live price data.",
+        "key_points": [
+            "Selected assets remain in focus.",
+            "Market context is derived from available news.",
+            "Price data was unavailable for this run.",
+        ],
+        "watch_for": "Watch for renewed price data availability.",
+        "risk_note": "This is informational content, not financial advice.",
+    }
+)
 
 
 def signup_login_and_set_preferences(client):
@@ -204,3 +230,82 @@ def test_dashboard_ai_insight_without_token(client):
     response = client.get("/dashboard/insight")
 
     assert response.status_code == 401
+
+
+@patch(GENERATE_INSIGHT, new_callable=AsyncMock)
+@patch(GET_COIN_PRICES, new_callable=AsyncMock)
+def test_ai_insight_generated_when_coingecko_unavailable(
+    mock_get_coin_prices,
+    mock_generate_insight,
+    client,
+):
+    """A CoinGecko failure must not block AI insight generation."""
+
+    mock_get_coin_prices.side_effect = httpx.HTTPError("CoinGecko unavailable")
+    mock_generate_insight.return_value = VALID_INSIGHT_JSON
+
+    headers = signup_login_and_set_preferences(client)
+
+    response = client.get(
+        "/dashboard/insight",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["title"] == "Resilient Market Insight"
+    assert data["feedback"] is not None
+    assert data["feedback"]["vote"] == "none"
+
+    # The insight was still produced via OpenRouter despite the price failure.
+    mock_generate_insight.assert_awaited_once()
+
+
+@patch(GENERATE_INSIGHT, new_callable=AsyncMock)
+@patch(GET_COIN_PRICES, new_callable=AsyncMock)
+def test_ai_insight_invalid_json_returns_502(
+    mock_get_coin_prices,
+    mock_generate_insight,
+    client,
+):
+    """Non-JSON provider output is handled as a clean 502, not a raw 500."""
+
+    mock_get_coin_prices.return_value = []
+    mock_generate_insight.return_value = "this is not valid json {{{"
+
+    headers = signup_login_and_set_preferences(client)
+
+    response = client.get(
+        "/dashboard/insight",
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    assert "temporarily unavailable" in response.json()["detail"]
+
+
+@patch(GENERATE_INSIGHT, new_callable=AsyncMock)
+@patch(GET_COIN_PRICES, new_callable=AsyncMock)
+def test_ai_insight_schema_invalid_returns_502(
+    mock_get_coin_prices,
+    mock_generate_insight,
+    client,
+):
+    """Valid JSON that fails schema validation is handled as a clean 502."""
+
+    mock_get_coin_prices.return_value = []
+    mock_generate_insight.return_value = json.dumps(
+        {"title": "Missing required fields"}
+    )
+
+    headers = signup_login_and_set_preferences(client)
+
+    response = client.get(
+        "/dashboard/insight",
+        headers=headers,
+    )
+
+    assert response.status_code == 502
+    assert "temporarily unavailable" in response.json()["detail"]

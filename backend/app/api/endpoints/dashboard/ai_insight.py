@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from app.schemas.dashboard import (
     DashboardFeedbackResponse,
 )
 from app.services.dashboard.ai_insight_service import (
+    AIInsightGenerationError,
     create_ai_insight,
     generate_ai_insight,
     get_today_ai_insight,
@@ -66,10 +67,19 @@ async def get_dashboard_ai_insight(
     )
 
     if insight is None:
-        generated_insight = await generate_ai_insight(
-            investor_type=preferences.investor_type,
-            assets=preferences.assets,
-        )
+        try:
+            generated_insight = await generate_ai_insight(
+                investor_type=preferences.investor_type,
+                assets=preferences.assets,
+            )
+        except AIInsightGenerationError:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=(
+                    "AI insight is temporarily unavailable. "
+                    "Please try again later."
+                ),
+            )
 
         insight = await run_in_threadpool(
             create_ai_insight,
