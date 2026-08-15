@@ -61,6 +61,43 @@ def get_or_create_feedback(
     return feedback
 
 
+def get_last_shown_item_id(
+    db: Session,
+    user_id: int,
+    section: FeedbackSection,
+) -> str | None:
+    """Return the item the user saw most recently in a dashboard section."""
+
+    statement = (
+        select(DashboardFeedback.item_id)
+        .where(
+            DashboardFeedback.user_id == user_id,
+            DashboardFeedback.section == section.value,
+        )
+        .order_by(
+            DashboardFeedback.shown_at.desc(),
+            DashboardFeedback.id.desc(),
+        )
+        .limit(1)
+    )
+
+    return db.scalars(statement).first()
+
+
+def mark_feedback_shown(
+    db: Session,
+    feedback: DashboardFeedback,
+) -> DashboardFeedback:
+    """Record that displayed content was shown again, keeping the vote."""
+
+    feedback.shown_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(feedback)
+
+    return feedback
+
+
 def submit_vote(
     db: Session,
     feedback_id: int,

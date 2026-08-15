@@ -1,5 +1,3 @@
-import hashlib
-
 from fastapi import APIRouter, Depends
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
@@ -13,8 +11,11 @@ from app.schemas.dashboard import (
     MemeResponse,
 )
 from app.services.dashboard.dashboard_feedback_service import (
+    get_last_shown_item_id,
     get_or_create_feedback,
+    mark_feedback_shown,
 )
+from app.services.dashboard.meme_identity import build_meme_item_id
 from app.services.dashboard.meme_service import get_meme
 from app.services.preference_service import get_preferences_by_user_id
 
@@ -47,8 +48,18 @@ async def get_dashboard_meme(
         else []
     )
 
+    # The meme shown last is skipped so a repeated request (dashboard or
+    # meme-only refresh) does not immediately return the same image.
+    last_item_id = await run_in_threadpool(
+        get_last_shown_item_id,
+        db,
+        current_user.id,
+        FeedbackSection.MEME,
+    )
+
     meme = await get_meme(
         assets=assets,
+        exclude_item_ids={last_item_id} if last_item_id else set(),
     )
 
     content_snapshot = meme.model_dump(
@@ -56,15 +67,7 @@ async def get_dashboard_meme(
         exclude={"feedback"},
     )
 
-    identifier_source = (
-        meme.source_url
-        or meme.image_url
-        or meme.title
-    )
-
-    item_id = hashlib.sha256(
-        identifier_source.encode("utf-8")
-    ).hexdigest()
+    item_id = build_meme_item_id(meme)
 
     feedback = await run_in_threadpool(
         get_or_create_feedback,
@@ -73,6 +76,12 @@ async def get_dashboard_meme(
         FeedbackSection.MEME,
         item_id,
         content_snapshot,
+    )
+
+    feedback = await run_in_threadpool(
+        mark_feedback_shown,
+        db,
+        feedback,
     )
 
     feedback_response = DashboardFeedbackResponse(
