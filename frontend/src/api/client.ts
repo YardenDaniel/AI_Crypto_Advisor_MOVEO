@@ -6,6 +6,7 @@ type HttpMethod = 'GET' | 'POST' | 'PATCH'
 type ApiRequestOptions = {
   method?: HttpMethod
   body?: unknown
+  timeoutMs?: number
 }
 
 export function resolveApiBaseUrl(raw: string | undefined): string {
@@ -62,13 +63,33 @@ export async function apiRequest<T>(
     headers['Content-Type'] = 'application/json'
   }
 
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    method,
-    credentials: 'include',
-    headers,
-    body:
-      options.body === undefined ? undefined : JSON.stringify(options.body),
-  })
+  const controller = new AbortController()
+  const timeoutId =
+    options.timeoutMs === undefined
+      ? undefined
+      : window.setTimeout(() => controller.abort(), options.timeoutMs)
+
+  let response: Response
+  try {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
+      method,
+      credentials: 'include',
+      headers,
+      signal: controller.signal,
+      body:
+        options.body === undefined ? undefined : JSON.stringify(options.body),
+    })
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('Request timed out. Please try again.')
+    }
+
+    throw error
+  } finally {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId)
+    }
+  }
 
   if (response.status === 204) {
     return undefined as T

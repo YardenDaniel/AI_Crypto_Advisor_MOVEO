@@ -4,9 +4,21 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getMe, login, logout, signup } from './api/auth'
 import { getPreferences } from './api/preferences'
+import {
+  getAiInsight,
+  getCoinPrices,
+  getMarketNews,
+  getMeme,
+} from './api/dashboard'
 import { ApiError } from './api/errors'
 import { resetAuthSessionCache } from './context/AuthContext'
-import { renderApp } from './test/renderApp'
+import { findDashboard, renderApp } from './test/renderApp'
+import {
+  insightResponse,
+  memeResponse,
+  newsResponse,
+  pricesResponse,
+} from './test/dashboardFixtures'
 import type { Preference } from './types/preferences'
 
 vi.mock('./api/auth', () => ({
@@ -20,6 +32,14 @@ vi.mock('./api/preferences', () => ({
   getPreferences: vi.fn(),
   createPreferences: vi.fn(),
   updatePreferences: vi.fn(),
+}))
+
+vi.mock('./api/dashboard', () => ({
+  getCoinPrices: vi.fn(),
+  getMarketNews: vi.fn(),
+  getMeme: vi.fn(),
+  getAiInsight: vi.fn(),
+  submitVote: vi.fn(),
 }))
 
 const guestError = new ApiError(401, 'Not authenticated', 'Not authenticated')
@@ -47,9 +67,17 @@ beforeEach(() => {
   vi.mocked(signup).mockReset()
   vi.mocked(logout).mockReset()
   vi.mocked(getPreferences).mockReset()
+  vi.mocked(getCoinPrices).mockReset()
+  vi.mocked(getMarketNews).mockReset()
+  vi.mocked(getMeme).mockReset()
+  vi.mocked(getAiInsight).mockReset()
   vi.mocked(getMe).mockRejectedValue(guestError)
   vi.mocked(logout).mockResolvedValue(undefined)
   vi.mocked(getPreferences).mockResolvedValue(savedPreferences)
+  vi.mocked(getCoinPrices).mockResolvedValue(pricesResponse)
+  vi.mocked(getMarketNews).mockResolvedValue(newsResponse)
+  vi.mocked(getMeme).mockResolvedValue(memeResponse)
+  vi.mocked(getAiInsight).mockResolvedValue(insightResponse)
 })
 
 describe('session restore', () => {
@@ -58,8 +86,8 @@ describe('session restore', () => {
 
     renderApp('/')
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
-    expect(screen.getByText(/Your preferences are saved/)).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Prices' })).toBeInTheDocument()
   })
 
   it('redirects to Login when /auth/me returns 401', async () => {
@@ -97,7 +125,7 @@ describe('session restore', () => {
       </StrictMode>,
     )
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
     expect(getMe).toHaveBeenCalledOnce()
   })
 })
@@ -109,7 +137,7 @@ describe('routing', () => {
     expect(
       await screen.findByRole('heading', { name: 'Sign in' }),
     ).toBeInTheDocument()
-    expect(screen.queryByText(/Welcome,/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Daily briefing' })).not.toBeInTheDocument()
   })
 
   it('redirects an authenticated user away from /login', async () => {
@@ -117,7 +145,7 @@ describe('routing', () => {
 
     renderApp('/login')
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: 'Sign in' }),
     ).not.toBeInTheDocument()
@@ -154,7 +182,7 @@ describe('login', () => {
       email: 'ada@example.com',
       password: 'Password1',
     })
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
   })
 
   it('shows an error for wrong credentials', async () => {
@@ -212,7 +240,7 @@ describe('signup', () => {
       email: 'ada@example.com',
       password: 'Password1',
     })
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
   })
 
   it('redirects to Login when auto-login fails, without a technical error', async () => {
@@ -265,13 +293,15 @@ describe('logout', () => {
 
     renderApp('/')
 
-    await screen.findByText('Welcome, Ada')
+    await findDashboard()
     await event.click(screen.getByRole('button', { name: 'Logout' }))
 
     expect(logout).toHaveBeenCalledOnce()
     expect(
       await screen.findByRole('heading', { name: 'Sign in' }),
     ).toBeInTheDocument()
-    expect(screen.queryByText('Welcome, Ada')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Daily briefing' }),
+    ).not.toBeInTheDocument()
   })
 })
