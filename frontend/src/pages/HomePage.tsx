@@ -23,7 +23,9 @@ export function HomePage() {
       <h1 className="text-3xl font-semibold tracking-tight">
         Welcome, {user?.name}
       </h1>
-      <p className="mt-2 max-w-xl text-muted">Authentication is working.</p>
+      <p className="mt-2 max-w-xl text-muted">
+        Your preferences are saved. Dashboard coming next.
+      </p>
       <div className="mt-6">
         <Button
           type="button"

@@ -3,9 +3,11 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getMe, login, logout, signup } from './api/auth'
+import { getPreferences } from './api/preferences'
 import { ApiError } from './api/errors'
 import { resetAuthSessionCache } from './context/AuthContext'
 import { renderApp } from './test/renderApp'
+import type { Preference } from './types/preferences'
 
 vi.mock('./api/auth', () => ({
   getMe: vi.fn(),
@@ -14,12 +16,25 @@ vi.mock('./api/auth', () => ({
   logout: vi.fn(),
 }))
 
+vi.mock('./api/preferences', () => ({
+  getPreferences: vi.fn(),
+  createPreferences: vi.fn(),
+  updatePreferences: vi.fn(),
+}))
+
 const guestError = new ApiError(401, 'Not authenticated', 'Not authenticated')
 
 const user = {
   id: 1,
   name: 'Ada',
   email: 'ada@example.com',
+}
+
+const savedPreferences: Preference = {
+  user_id: 1,
+  assets: ['BTC', 'ETH'],
+  investor_type: 'hodler',
+  content_types: ['market_news', 'charts'],
 }
 
 afterEach(() => {
@@ -31,8 +46,10 @@ beforeEach(() => {
   vi.mocked(login).mockReset()
   vi.mocked(signup).mockReset()
   vi.mocked(logout).mockReset()
+  vi.mocked(getPreferences).mockReset()
   vi.mocked(getMe).mockRejectedValue(guestError)
   vi.mocked(logout).mockResolvedValue(undefined)
+  vi.mocked(getPreferences).mockResolvedValue(savedPreferences)
 })
 
 describe('session restore', () => {
@@ -42,7 +59,7 @@ describe('session restore', () => {
     renderApp('/')
 
     expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
-    expect(screen.getByText('Authentication is working.')).toBeInTheDocument()
+    expect(screen.getByText(/Your preferences are saved/)).toBeInTheDocument()
   })
 
   it('redirects to Login when /auth/me returns 401', async () => {
