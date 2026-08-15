@@ -3,7 +3,7 @@ import { AuthLayout } from './components/auth/AuthLayout'
 import { GuestRoute } from './components/auth/GuestRoute'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { OnboardingGate } from './components/onboarding/OnboardingGate'
-import { HomePage } from './pages/HomePage'
+import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OnboardingPage } from './pages/OnboardingPage'
@@ -21,7 +21,7 @@ function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<OnboardingGate />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<DashboardPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
         </Route>
       </Route>

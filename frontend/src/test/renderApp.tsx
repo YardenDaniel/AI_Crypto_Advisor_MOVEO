@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '../context/AuthContext'
@@ -24,4 +24,8 @@ export function renderApp(route = '/') {
       </QueryClientProvider>,
     ),
   }
+}
+
+export function findDashboard() {
+  return screen.findByRole('heading', { name: 'Daily briefing' })
 }
