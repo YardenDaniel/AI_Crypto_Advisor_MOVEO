@@ -21,7 +21,9 @@ export function getMeme(): Promise<Meme> {
 }
 
 export function getAiInsight(): Promise<AiInsight> {
-  return apiRequest<AiInsight>('/dashboard/insight')
+  return apiRequest<AiInsight>('/dashboard/insight', {
+    timeoutMs: 60_000,
+  })
 }
 
 export function submitVote(

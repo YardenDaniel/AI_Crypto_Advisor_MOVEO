@@ -3,10 +3,22 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getMe } from './api/auth'
 import { createPreferences, getPreferences } from './api/preferences'
+import {
+  getAiInsight,
+  getCoinPrices,
+  getMarketNews,
+  getMeme,
+} from './api/dashboard'
 import { ApiError } from './api/errors'
 import { resetAuthSessionCache } from './context/AuthContext'
 import { PREFERENCES_QUERY_KEY } from './hooks/usePreferences'
-import { renderApp } from './test/renderApp'
+import { findDashboard, renderApp } from './test/renderApp'
+import {
+  insightResponse,
+  memeResponse,
+  newsResponse,
+  pricesResponse,
+} from './test/dashboardFixtures'
 import type { Preference } from './types/preferences'
 
 vi.mock('./api/auth', () => ({
@@ -20,6 +32,14 @@ vi.mock('./api/preferences', () => ({
   getPreferences: vi.fn(),
   createPreferences: vi.fn(),
   updatePreferences: vi.fn(),
+}))
+
+vi.mock('./api/dashboard', () => ({
+  getCoinPrices: vi.fn(),
+  getMarketNews: vi.fn(),
+  getMeme: vi.fn(),
+  getAiInsight: vi.fn(),
+  submitVote: vi.fn(),
 }))
 
 const user = {
@@ -45,8 +65,16 @@ beforeEach(() => {
   vi.mocked(getMe).mockReset()
   vi.mocked(getPreferences).mockReset()
   vi.mocked(createPreferences).mockReset()
+  vi.mocked(getCoinPrices).mockReset()
+  vi.mocked(getMarketNews).mockReset()
+  vi.mocked(getMeme).mockReset()
+  vi.mocked(getAiInsight).mockReset()
   vi.mocked(getMe).mockResolvedValue(user)
   vi.mocked(getPreferences).mockRejectedValue(notFound)
+  vi.mocked(getCoinPrices).mockResolvedValue(pricesResponse)
+  vi.mocked(getMarketNews).mockResolvedValue(newsResponse)
+  vi.mocked(getMeme).mockResolvedValue(memeResponse)
+  vi.mocked(getAiInsight).mockResolvedValue(insightResponse)
 })
 
 async function completeWizard(
@@ -67,8 +95,8 @@ describe('preference gate', () => {
 
     renderApp('/')
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
-    expect(screen.getByText(/Your preferences are saved/)).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Prices' })).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: /Personalize your daily briefing/ }),
     ).not.toBeInTheDocument()
@@ -82,7 +110,9 @@ describe('preference gate', () => {
         name: 'Personalize your daily briefing',
       }),
     ).toBeInTheDocument()
-    expect(screen.queryByText('Welcome, Ada')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Daily briefing' }),
+    ).not.toBeInTheDocument()
   })
 
   it('redirects a completed user away from /onboarding', async () => {
@@ -90,7 +120,7 @@ describe('preference gate', () => {
 
     renderApp('/onboarding')
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', { name: /Personalize your daily briefing/ }),
     ).not.toBeInTheDocument()
@@ -184,8 +214,8 @@ describe('onboarding submit', () => {
     expect(queryClient.getQueryData(PREFERENCES_QUERY_KEY)).toEqual(
       savedPreferences,
     )
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
-    expect(screen.getByText(/Dashboard coming next/)).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Prices' })).toBeInTheDocument()
   })
 
   it('treats 409 as already onboarded and continues to home', async () => {
@@ -201,7 +231,7 @@ describe('onboarding submit', () => {
 
     await completeWizard(event)
 
-    expect(await screen.findByText('Welcome, Ada')).toBeInTheDocument()
+    expect(await findDashboard()).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -222,7 +252,9 @@ describe('onboarding submit', () => {
     expect(
       screen.getByRole('button', { name: 'Finish setup' }),
     ).toBeInTheDocument()
-    expect(screen.queryByText('Welcome, Ada')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Daily briefing' }),
+    ).not.toBeInTheDocument()
   })
 })
 
