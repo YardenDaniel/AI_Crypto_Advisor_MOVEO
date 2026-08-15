@@ -30,3 +30,16 @@ export const SUPPORTED_ASSETS: AssetSymbol[] = [
   'XRP',
   'ADA',
 ]
+
+export const SUPPORTED_INVESTOR_TYPES: InvestorType[] = [
+  'hodler',
+  'day_trader',
+  'nft_collector',
+]
+
+export const SUPPORTED_CONTENT_TYPES: ContentType[] = [
+  'market_news',
+  'charts',
+  'social',
+  'fun',
+]

@@ -2,9 +2,11 @@ import { Route, Routes } from 'react-router-dom'
 import { AuthLayout } from './components/auth/AuthLayout'
 import { GuestRoute } from './components/auth/GuestRoute'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import { OnboardingGate } from './components/onboarding/OnboardingGate'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { OnboardingPage } from './pages/OnboardingPage'
 import { SignupPage } from './pages/SignupPage'
 
 function App() {
@@ -18,7 +20,10 @@ function App() {
       </Route>
 
       <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<HomePage />} />
+        <Route element={<OnboardingGate />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
