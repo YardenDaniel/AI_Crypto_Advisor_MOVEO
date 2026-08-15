@@ -3,6 +3,7 @@ import { Skeleton } from '../common/Skeleton'
 import { useCoinPrices } from '../../hooks/dashboard/useCoinPrices'
 import { formatMoney } from '../../utils/formatMoney'
 import { formatPercent } from '../../utils/formatPercent'
+import { formatPriceFreshness } from '../../utils/formatPriceFreshness'
 import { SectionEmpty, SectionError } from './SectionStatus'
 import { VoteControls } from './VoteControls'
 
@@ -27,9 +28,22 @@ export function PricesSectionSkeleton() {
 
 export function PricesSection() {
   const pricesQuery = useCoinPrices()
+  const freshness = formatPriceFreshness(
+    (pricesQuery.data?.prices ?? []).map((price) => price.last_updated_at),
+  )
 
   return (
-    <SectionCard title="Prices" compact>
+    <SectionCard
+      title="Prices"
+      compact
+      action={
+        freshness ? (
+          <p className="shrink-0 text-xs text-muted">
+            {freshness}
+          </p>
+        ) : null
+      }
+    >
       {pricesQuery.isPending ? <PricesSectionSkeleton /> : null}
 
       {pricesQuery.isError ? (
@@ -80,9 +94,10 @@ export function PricesSection() {
       ) : null}
 
       {pricesQuery.data?.feedback ? (
-        <div className="mt-3 border-t border-border pt-3">
-          <VoteControls feedback={pricesQuery.data.feedback} />
-        </div>
+        <VoteControls
+          feedback={pricesQuery.data.feedback}
+          className="mt-3 border-t border-border pt-3"
+        />
       ) : null}
     </SectionCard>
   )

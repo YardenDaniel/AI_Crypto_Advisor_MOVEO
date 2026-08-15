@@ -27,13 +27,16 @@ export function AppHeader() {
     <header className="border-b border-border bg-surface">
       <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between gap-4 px-4 py-3 md:px-5 lg:px-6">
         <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-ai">
-            <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            AI Crypto Advisor
-          </p>
-          <h1 className="truncate text-lg font-semibold tracking-tight">
-            Daily briefing
+          <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight text-text sm:text-2xl">
+            <Sparkles
+              className="h-5 w-5 shrink-0 text-ai sm:h-6 sm:w-6"
+              aria-hidden="true"
+            />
+            <span className="truncate">AI Crypto Advisor</span>
           </h1>
+          <h2 className="truncate text-xs font-medium uppercase tracking-[0.14em] text-muted sm:text-sm sm:tracking-[0.1em]">
+            Daily briefing
+          </h2>
         </div>
 
         <div className="flex shrink-0 items-center gap-3 sm:gap-4">

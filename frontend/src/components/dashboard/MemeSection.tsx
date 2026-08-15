@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Maximize2 } from 'lucide-react'
+import { ImageLightbox } from '../common/ImageLightbox'
 import { SectionCard } from '../common/SectionCard'
 import { Skeleton } from '../common/Skeleton'
 import { useMeme } from '../../hooks/dashboard/useMeme'
@@ -18,11 +20,13 @@ export function MemeSectionSkeleton() {
 export function MemeSection() {
   const memeQuery = useMeme()
   const [imageBroken, setImageBroken] = useState(false)
+  const [enlarged, setEnlarged] = useState(false)
   const imageUrl = resolveMemeImageUrl(memeQuery.data?.image_url ?? null)
   const showImage = Boolean(imageUrl) && !imageBroken
 
   useEffect(() => {
     setImageBroken(false)
+    setEnlarged(false)
   }, [memeQuery.data?.image_url])
 
   return (
@@ -42,12 +46,25 @@ export function MemeSection() {
         <div className="flex min-h-0 min-w-0 flex-col lg:flex-1">
           {showImage ? (
             <div className="flex justify-center lg:relative lg:min-h-0 lg:flex-1">
-              <img
-                src={imageUrl ?? undefined}
-                alt={memeQuery.data.title}
-                className="mx-auto h-auto max-h-56 w-full max-w-sm rounded-[var(--radius-md)] object-contain lg:absolute lg:inset-0 lg:h-full lg:max-h-none lg:w-full lg:max-w-full"
-                onError={() => setImageBroken(true)}
-              />
+              <button
+                type="button"
+                onClick={() => setEnlarged(true)}
+                aria-label={`Enlarge meme: ${memeQuery.data.title}`}
+                className="group relative mx-auto flex w-full max-w-sm cursor-zoom-in items-center justify-center rounded-[var(--radius-md)] lg:absolute lg:inset-0 lg:max-w-full"
+              >
+                <img
+                  src={imageUrl ?? undefined}
+                  alt={memeQuery.data.title}
+                  className="h-auto max-h-56 w-full rounded-[var(--radius-md)] object-contain lg:h-full lg:max-h-none"
+                  onError={() => setImageBroken(true)}
+                />
+                <span
+                  className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border border-border bg-card/85 text-muted transition-colors group-hover:text-text"
+                  aria-hidden="true"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </span>
+              </button>
             </div>
           ) : (
             <SectionEmpty>Meme image is unavailable.</SectionEmpty>
@@ -70,12 +87,22 @@ export function MemeSection() {
               <p className="mt-1 text-sm text-muted">{memeQuery.data.source}</p>
             )}
             {memeQuery.data.feedback ? (
-              <div className="mt-4">
-                <VoteControls feedback={memeQuery.data.feedback} />
-              </div>
+              <VoteControls
+                feedback={memeQuery.data.feedback}
+                className="mt-4"
+              />
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {enlarged && showImage && imageUrl && memeQuery.data ? (
+        <ImageLightbox
+          src={imageUrl}
+          alt={memeQuery.data.title}
+          caption={memeQuery.data.title}
+          onClose={() => setEnlarged(false)}
+        />
       ) : null}
     </SectionCard>
   )
