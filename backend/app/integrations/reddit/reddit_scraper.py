@@ -11,20 +11,22 @@ from app.schemas.dashboard import MemeResponse
 class RedditMemeScraper:
     """Scrape public crypto meme posts from Reddit."""
 
-    def get_meme(
+    async def get_meme(
         self,
         assets: list[str],
     ) -> MemeResponse | None:
         """Return a Reddit meme relevant to the user's preferred assets."""
 
-        response = httpx.get(
-            settings.reddit_meme_url,
-            headers={
-                "User-Agent": settings.reddit_user_agent,
-            },
+        async with httpx.AsyncClient(
             timeout=10.0,
             follow_redirects=True,
-        )
+        ) as client:
+            response = await client.get(
+                settings.reddit_meme_url,
+                headers={
+                    "User-Agent": settings.reddit_user_agent,
+                },
+            )
 
         response.raise_for_status()
 
@@ -71,12 +73,12 @@ class RedditMemeScraper:
             ):
                 relevant_memes.append(meme)
 
-        meme = self._choose_available_meme(relevant_memes)
+        meme = await self._choose_available_meme(relevant_memes)
 
         if meme is not None:
             return meme
 
-        return self._choose_available_meme(all_memes)
+        return await self._choose_available_meme(all_memes)
 
     @staticmethod
     def _get_keywords(assets: list[str]) -> list[str]:
@@ -106,15 +108,15 @@ class RedditMemeScraper:
         )
 
     @staticmethod
-    def _is_image_available(image_url: str) -> bool:
+    async def _is_image_available(image_url: str) -> bool:
         """Check whether the selected Reddit image is still available."""
 
         try:
-            response = httpx.head(
-                image_url,
+            async with httpx.AsyncClient(
                 timeout=5.0,
                 follow_redirects=True,
-            )
+            ) as client:
+                response = await client.head(image_url)
 
             content_type = response.headers.get("content-type", "")
 
@@ -126,7 +128,7 @@ class RedditMemeScraper:
         except httpx.HTTPError:
             return False
 
-    def _choose_available_meme(
+    async def _choose_available_meme(
         self,
         memes: list[MemeResponse],
     ) -> MemeResponse | None:
@@ -138,7 +140,7 @@ class RedditMemeScraper:
         for meme in candidates:
             if (
                 meme.image_url
-                and self._is_image_available(meme.image_url)
+                and await self._is_image_available(meme.image_url)
             ):
                 return meme
 

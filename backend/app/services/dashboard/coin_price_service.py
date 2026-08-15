@@ -3,7 +3,7 @@ from app.integrations.crypto.coingecko_client import CoinGeckoClient
 from app.schemas.dashboard import CoinPriceResponse
 
 
-def get_coin_prices(
+async def get_coin_prices(
     assets: list[str],
     client: CoinGeckoClient,
 ) -> list[CoinPriceResponse]:
@@ -15,7 +15,7 @@ def get_coin_prices(
         if asset in COINGECKO_ASSET_IDS
     ]
 
-    raw_prices = client.get_prices(coin_ids)
+    raw_prices = await client.get_prices(coin_ids)
 
     prices = []
 

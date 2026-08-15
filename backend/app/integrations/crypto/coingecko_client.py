@@ -11,22 +11,22 @@ class CoinGeckoClient:
         self.base_url = settings.coingecko_base_url
         self.api_key = settings.coingecko_api_key
 
-    def get_prices(self, coin_ids: list[str]) -> dict:
+    async def get_prices(self, coin_ids: list[str]) -> dict:
         """Fetch current market prices for the requested coins."""
 
-        response = httpx.get(
-            f"{self.base_url}/simple/price",
-            headers={
-                "x-cg-demo-api-key": self.api_key,
-            },
-            params={
-                "ids": ",".join(coin_ids),
-                "vs_currencies": "usd",
-                "include_24hr_change": "true",
-                "include_last_updated_at": "true",
-            },
-            timeout=10.0,
-        )
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{self.base_url}/simple/price",
+                headers={
+                    "x-cg-demo-api-key": self.api_key,
+                },
+                params={
+                    "ids": ",".join(coin_ids),
+                    "vs_currencies": "usd",
+                    "include_24hr_change": "true",
+                    "include_last_updated_at": "true",
+                },
+            )
 
         response.raise_for_status()
 

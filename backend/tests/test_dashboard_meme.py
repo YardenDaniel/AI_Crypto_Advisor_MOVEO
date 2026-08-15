@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 
@@ -45,7 +45,8 @@ def signup_login_and_set_preferences(client):
 
 
 @patch(
-    "app.services.dashboard.meme_service.RedditMemeScraper.get_meme"
+    "app.services.dashboard.meme_service.RedditMemeScraper.get_meme",
+    new_callable=AsyncMock,
 )
 def test_dashboard_meme_returns_reddit_meme(
     mock_get_meme,
@@ -81,7 +82,8 @@ def test_dashboard_meme_returns_reddit_meme(
 
 
 @patch(
-    "app.services.dashboard.meme_service.RedditMemeScraper.get_meme"
+    "app.services.dashboard.meme_service.RedditMemeScraper.get_meme",
+    new_callable=AsyncMock,
 )
 def test_dashboard_meme_uses_static_fallback(
     mock_get_meme,
@@ -106,7 +108,8 @@ def test_dashboard_meme_uses_static_fallback(
 
 
 @patch(
-    "app.services.dashboard.meme_service.RedditMemeScraper.get_meme"
+    "app.services.dashboard.meme_service.RedditMemeScraper.get_meme",
+    new_callable=AsyncMock,
 )
 def test_dashboard_meme_uses_fallback_when_reddit_fails(
     mock_get_meme,

@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 
 def signup_login_and_set_preferences(client):
@@ -41,7 +41,8 @@ def signup_login_and_set_preferences(client):
 
 
 @patch(
-    "app.api.endpoints.dashboard.coin_prices.CoinGeckoClient.get_prices"
+    "app.api.endpoints.dashboard.coin_prices.CoinGeckoClient.get_prices",
+    new_callable=AsyncMock,
 )
 def test_dashboard_returns_preferred_coin_prices(
     mock_get_prices,
@@ -83,7 +84,8 @@ def test_dashboard_returns_preferred_coin_prices(
 
 
 @patch(
-    "app.api.endpoints.dashboard.coin_prices.CoinGeckoClient.get_prices"
+    "app.api.endpoints.dashboard.coin_prices.CoinGeckoClient.get_prices",
+    new_callable=AsyncMock,
 )
 def test_dashboard_uses_user_preferred_assets(
     mock_get_prices,

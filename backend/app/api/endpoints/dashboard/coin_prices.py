@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -20,13 +21,14 @@ router = APIRouter(
     "",
     response_model=CoinPricesResponse,
 )
-def get_dashboard_prices(
+async def get_dashboard_prices(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Return coin prices based on the authenticated user's preferences."""
 
-    preferences = get_preferences_by_user_id(
+    preferences = await run_in_threadpool(
+        get_preferences_by_user_id,
         db=db,
         user_id=current_user.id,
     )
@@ -36,7 +38,7 @@ def get_dashboard_prices(
 
     client = CoinGeckoClient()
 
-    prices = get_coin_prices(
+    prices = await get_coin_prices(
         assets=preferences.assets,
         client=client,
     )

@@ -7,7 +7,7 @@ from app.integrations.reddit.reddit_scraper import RedditMemeScraper
 from app.schemas.dashboard import MemeResponse
 
 
-def get_meme(
+async def get_meme(
     assets: list[str],
 ) -> MemeResponse:
     """Return a personalized Reddit meme or static fallback."""
@@ -15,7 +15,7 @@ def get_meme(
     scraper = RedditMemeScraper()
 
     try:
-        reddit_meme = scraper.get_meme(
+        reddit_meme = await scraper.get_meme(
             assets=assets,
         )
 
