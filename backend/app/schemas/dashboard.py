@@ -30,3 +30,11 @@ class MarketNewsResponse(BaseModel):
     """Market news section returned by the dashboard API."""
 
     news: list[MarketNewsItem]
+
+class MemeResponse(BaseModel):
+    """A crypto meme displayed on the dashboard."""
+
+    title: str
+    image_url: str | None
+    source: str
+    source_url: str | None

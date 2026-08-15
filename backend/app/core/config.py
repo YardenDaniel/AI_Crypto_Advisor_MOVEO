@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     cryptopanic_base_url: str
     cryptopanic_api_key: str
 
+    # Reddit scraping configuration
+    reddit_meme_url: str
+    reddit_user_agent: str
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
