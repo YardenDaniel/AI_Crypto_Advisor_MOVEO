@@ -1,4 +1,5 @@
 import { ApiError, parseApiError } from './errors'
+import { notifyUnauthorized } from './unauthorized'
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH'
 
@@ -76,7 +77,13 @@ export async function apiRequest<T>(
   const payload = await readJson(response)
 
   if (!response.ok) {
-    throw parseApiError(response.status, payload)
+    const error = parseApiError(response.status, payload)
+
+    if (error.status === 401 && !path.startsWith('/auth/')) {
+      notifyUnauthorized()
+    }
+
+    throw error
   }
 
   return payload as T

@@ -55,3 +55,7 @@ export function isValidationError(
 ): detail is FastApiValidationItem[] {
   return Array.isArray(detail)
 }
+
+export function isApiError(error: unknown): error is ApiError {
+  return error instanceof ApiError
+}
