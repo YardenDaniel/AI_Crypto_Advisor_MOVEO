@@ -37,7 +37,7 @@ def signup(client, email, name="Feedback User", password="Password123!"):
 
 
 def login(client, email, password="Password123!"):
-    """Log a user in and return an authorization header."""
+    """Log a user in and store the auth cookie on the test client."""
 
     response = client.post(
         "/auth/login",
@@ -49,19 +49,12 @@ def login(client, email, password="Password123!"):
 
     assert response.status_code == 200
 
-    token = response.json()["access_token"]
 
-    return {
-        "Authorization": f"Bearer {token}",
-    }
-
-
-def set_preferences(client, headers, assets):
+def set_preferences(client, assets):
     """Configure onboarding preferences for a user."""
 
     response = client.post(
         "/preferences",
-        headers=headers,
         json={
             "assets": assets,
             "investor_type": "hodler",
@@ -76,12 +69,10 @@ def register_user(client, email, assets=None, name="Feedback User"):
     """Create a user, log in, and optionally set preferences."""
 
     signup(client, email, name=name)
-    headers = login(client, email)
+    login(client, email)
 
     if assets is not None:
-        set_preferences(client, headers, assets)
-
-    return headers
+        set_preferences(client, assets)
 
 
 def prices_payload(btc_price):
@@ -116,9 +107,9 @@ def test_feedback_created_with_defaults(mock_get_prices, client, db):
 
     mock_get_prices.return_value = prices_payload(60000)
 
-    headers = register_user(client, "creator@example.com", assets=["BTC"])
+    register_user(client, "creator@example.com", assets=["BTC"])
 
-    response = client.get("/dashboard/prices", headers=headers)
+    response = client.get("/dashboard/prices")
 
     assert response.status_code == 200
 
@@ -148,10 +139,10 @@ def test_no_duplicate_feedback_on_refresh(mock_get_prices, client, db):
 
     mock_get_prices.return_value = prices_payload(60000)
 
-    headers = register_user(client, "refresh@example.com", assets=["BTC"])
+    register_user(client, "refresh@example.com", assets=["BTC"])
 
-    first = client.get("/dashboard/prices", headers=headers)
-    second = client.get("/dashboard/prices", headers=headers)
+    first = client.get("/dashboard/prices")
+    second = client.get("/dashboard/prices")
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -182,16 +173,15 @@ def test_vote_up(mock_get_prices, client, db):
 
     mock_get_prices.return_value = prices_payload(60000)
 
-    headers = register_user(client, "up@example.com", assets=["BTC"])
+    register_user(client, "up@example.com", assets=["BTC"])
 
     feedback_id = (
-        client.get("/dashboard/prices", headers=headers)
+        client.get("/dashboard/prices")
         .json()["feedback"]["id"]
     )
 
     response = client.post(
         f"/dashboard/feedback/{feedback_id}/vote",
-        headers=headers,
         json={"value": "up"},
     )
 
@@ -218,16 +208,15 @@ def test_vote_down(mock_get_prices, client, db):
 
     mock_get_prices.return_value = prices_payload(60000)
 
-    headers = register_user(client, "down@example.com", assets=["BTC"])
+    register_user(client, "down@example.com", assets=["BTC"])
 
     feedback_id = (
-        client.get("/dashboard/prices", headers=headers)
+        client.get("/dashboard/prices")
         .json()["feedback"]["id"]
     )
 
     response = client.post(
         f"/dashboard/feedback/{feedback_id}/vote",
-        headers=headers,
         json={"value": "down"},
     )
 
@@ -253,16 +242,15 @@ def test_vote_is_one_time(mock_get_prices, client, db):
 
     mock_get_prices.return_value = prices_payload(60000)
 
-    headers = register_user(client, "once@example.com", assets=["BTC"])
+    register_user(client, "once@example.com", assets=["BTC"])
 
     feedback_id = (
-        client.get("/dashboard/prices", headers=headers)
+        client.get("/dashboard/prices")
         .json()["feedback"]["id"]
     )
 
     first_vote = client.post(
         f"/dashboard/feedback/{feedback_id}/vote",
-        headers=headers,
         json={"value": "up"},
     )
 
@@ -271,7 +259,6 @@ def test_vote_is_one_time(mock_get_prices, client, db):
 
     second_vote = client.post(
         f"/dashboard/feedback/{feedback_id}/vote",
-        headers=headers,
         json={"value": "down"},
     )
 
@@ -298,18 +285,17 @@ def test_vote_on_other_users_feedback_returns_404(
 
     mock_get_prices.return_value = prices_payload(60000)
 
-    headers_a = register_user(client, "owner-a@example.com", assets=["BTC"])
+    register_user(client, "owner-a@example.com", assets=["BTC"])
 
     a_feedback_id = (
-        client.get("/dashboard/prices", headers=headers_a)
+        client.get("/dashboard/prices")
         .json()["feedback"]["id"]
     )
 
-    headers_b = register_user(client, "intruder-b@example.com", assets=["BTC"])
+    register_user(client, "intruder-b@example.com", assets=["BTC"])
 
     response = client.post(
         f"/dashboard/feedback/{a_feedback_id}/vote",
-        headers=headers_b,
         json={"value": "up"},
     )
 
@@ -327,11 +313,10 @@ def test_vote_on_other_users_feedback_returns_404(
 def test_vote_rejects_none_value(client):
     """`none` is an internal state and must be rejected by validation."""
 
-    headers = register_user(client, "reject-none@example.com", assets=["BTC"])
+    register_user(client, "reject-none@example.com", assets=["BTC"])
 
     response = client.post(
         "/dashboard/feedback/1/vote",
-        headers=headers,
         json={"value": "none"},
     )
 
@@ -341,11 +326,10 @@ def test_vote_rejects_none_value(client):
 def test_vote_rejects_invalid_value(client):
     """An unknown vote value must be rejected by validation."""
 
-    headers = register_user(client, "reject-bad@example.com", assets=["BTC"])
+    register_user(client, "reject-bad@example.com", assets=["BTC"])
 
     response = client.post(
         "/dashboard/feedback/1/vote",
-        headers=headers,
         json={"value": "banana"},
     )
 
@@ -372,9 +356,9 @@ def test_vote_without_token_returns_401(client):
 def test_market_news_items_have_feedback(client):
     """Every news article carries its own initial (none) feedback."""
 
-    headers = register_user(client, "news@example.com", assets=["BTC", "SOL"])
+    register_user(client, "news@example.com", assets=["BTC", "SOL"])
 
-    response = client.get("/dashboard/news", headers=headers)
+    response = client.get("/dashboard/news")
 
     assert response.status_code == 200
 
@@ -397,14 +381,14 @@ def test_market_news_items_have_feedback(client):
 def test_market_news_refresh_reuses_feedback_ids(client):
     """Refreshing news reuses the same feedback id per article."""
 
-    headers = register_user(
+    register_user(
         client,
         "news-refresh@example.com",
         assets=["BTC", "SOL"],
     )
 
-    first = client.get("/dashboard/news", headers=headers)
-    second = client.get("/dashboard/news", headers=headers)
+    first = client.get("/dashboard/news")
+    second = client.get("/dashboard/news")
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -430,9 +414,9 @@ def test_meme_response_has_feedback(mock_get_meme, client, db):
 
     mock_get_meme.return_value = fixed_meme()
 
-    headers = register_user(client, "meme@example.com", assets=["BTC"])
+    register_user(client, "meme@example.com", assets=["BTC"])
 
-    response = client.get("/dashboard/meme", headers=headers)
+    response = client.get("/dashboard/meme")
 
     assert response.status_code == 200
 
@@ -459,10 +443,10 @@ def test_meme_same_meme_reuses_feedback_id(mock_get_meme, client, db):
 
     mock_get_meme.return_value = fixed_meme()
 
-    headers = register_user(client, "meme-refresh@example.com", assets=["BTC"])
+    register_user(client, "meme-refresh@example.com", assets=["BTC"])
 
-    first = client.get("/dashboard/meme", headers=headers)
-    second = client.get("/dashboard/meme", headers=headers)
+    first = client.get("/dashboard/meme")
+    second = client.get("/dashboard/meme")
 
     assert first.status_code == 200
     assert second.status_code == 200
@@ -490,10 +474,10 @@ def test_coin_prices_feedback_is_section_level(mock_get_prices, client, db):
         prices_payload(70000),
     ]
 
-    headers = register_user(client, "prices@example.com", assets=["BTC"])
+    register_user(client, "prices@example.com", assets=["BTC"])
 
-    first = client.get("/dashboard/prices", headers=headers)
-    second = client.get("/dashboard/prices", headers=headers)
+    first = client.get("/dashboard/prices")
+    second = client.get("/dashboard/prices")
 
     assert first.status_code == 200
     assert second.status_code == 200

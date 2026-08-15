@@ -1,5 +1,5 @@
 def signup_and_login(client):
-    """Create a test user and return a valid JWT access token."""
+    """Create a test user and establish an authenticated cookie session."""
     client.post(
         "/auth/signup",
         json={
@@ -17,23 +17,15 @@ def signup_and_login(client):
         },
     )
 
-    return response.json()["access_token"]
-
-
-def auth_headers(token: str) -> dict[str, str]:
-    """Build the Authorization header used by protected endpoints."""
-    return {
-        "Authorization": f"Bearer {token}",
-    }
+    assert response.status_code == 200
 
 
 def test_create_preferences(client):
     """Test that an authenticated user can create preferences."""
-    token = signup_and_login(client)
+    signup_and_login(client)
 
     response = client.post(
         "/preferences",
-        headers=auth_headers(token),
         json={
             "assets": ["BTC", "ETH"],
             "investor_type": "hodler",
@@ -53,11 +45,10 @@ def test_create_preferences(client):
 
 def test_get_preferences(client):
     """Test that an authenticated user can retrieve their preferences."""
-    token = signup_and_login(client)
+    signup_and_login(client)
 
     client.post(
         "/preferences",
-        headers=auth_headers(token),
         json={
             "assets": ["BTC", "ETH"],
             "investor_type": "hodler",
@@ -65,10 +56,7 @@ def test_get_preferences(client):
         },
     )
 
-    response = client.get(
-        "/preferences",
-        headers=auth_headers(token),
-    )
+    response = client.get("/preferences")
 
     assert response.status_code == 200
 
@@ -81,11 +69,10 @@ def test_get_preferences(client):
 
 def test_update_preferences(client):
     """Test that an authenticated user can partially update preferences."""
-    token = signup_and_login(client)
+    signup_and_login(client)
 
     client.post(
         "/preferences",
-        headers=auth_headers(token),
         json={
             "assets": ["BTC", "ETH"],
             "investor_type": "hodler",
@@ -95,7 +82,6 @@ def test_update_preferences(client):
 
     response = client.patch(
         "/preferences",
-        headers=auth_headers(token),
         json={
             "assets": ["BTC", "SOL"],
         },
@@ -112,11 +98,10 @@ def test_update_preferences(client):
 
 def test_reject_unsupported_asset(client):
     """Test that unsupported crypto assets are rejected."""
-    token = signup_and_login(client)
+    signup_and_login(client)
 
     response = client.post(
         "/preferences",
-        headers=auth_headers(token),
         json={
             "assets": ["BTC", "BANANA_COIN"],
             "investor_type": "hodler",
@@ -129,7 +114,7 @@ def test_reject_unsupported_asset(client):
 
 def test_reject_duplicate_preferences(client):
     """Test that a user cannot create preferences twice."""
-    token = signup_and_login(client)
+    signup_and_login(client)
 
     preferences = {
         "assets": ["BTC"],
@@ -139,13 +124,11 @@ def test_reject_duplicate_preferences(client):
 
     first_response = client.post(
         "/preferences",
-        headers=auth_headers(token),
         json=preferences,
     )
 
     second_response = client.post(
         "/preferences",
-        headers=auth_headers(token),
         json=preferences,
     )
 

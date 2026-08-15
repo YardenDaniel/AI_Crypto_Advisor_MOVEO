@@ -53,15 +53,8 @@ def signup_login_and_set_preferences(client):
 
     assert login_response.status_code == 200
 
-    token = login_response.json()["access_token"]
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-    }
-
     preferences_response = client.post(
         "/preferences",
-        headers=headers,
         json={
             "assets": ["BTC", "ETH"],
             "investor_type": "hodler",
@@ -70,8 +63,6 @@ def signup_login_and_set_preferences(client):
     )
 
     assert preferences_response.status_code == 201
-
-    return headers
 
 
 @patch(
@@ -96,12 +87,9 @@ def test_dashboard_ai_insight_generates_new_insight(
         risk_note="This is informational content, not financial advice.",
     )
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/insight",
-        headers=headers,
-    )
+    response = client.get("/dashboard/insight")
 
     assert response.status_code == 200
 
@@ -137,17 +125,11 @@ def test_dashboard_ai_insight_reuses_daily_insight(
         risk_note="This is informational content, not financial advice.",
     )
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    first_response = client.get(
-        "/dashboard/insight",
-        headers=headers,
-    )
+    first_response = client.get("/dashboard/insight")
 
-    second_response = client.get(
-        "/dashboard/insight",
-        headers=headers,
-    )
+    second_response = client.get("/dashboard/insight")
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
@@ -185,12 +167,9 @@ def test_dashboard_ai_insight_response_structure(
         risk_note="This is educational information, not financial advice.",
     )
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/insight",
-        headers=headers,
-    )
+    response = client.get("/dashboard/insight")
 
     assert response.status_code == 200
 
@@ -244,12 +223,9 @@ def test_ai_insight_generated_when_coingecko_unavailable(
     mock_get_coin_prices.side_effect = httpx.HTTPError("CoinGecko unavailable")
     mock_generate_insight.return_value = VALID_INSIGHT_JSON
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/insight",
-        headers=headers,
-    )
+    response = client.get("/dashboard/insight")
 
     assert response.status_code == 200
 
@@ -275,12 +251,9 @@ def test_ai_insight_invalid_json_returns_502(
     mock_get_coin_prices.return_value = []
     mock_generate_insight.return_value = "this is not valid json {{{"
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/insight",
-        headers=headers,
-    )
+    response = client.get("/dashboard/insight")
 
     assert response.status_code == 502
     assert "temporarily unavailable" in response.json()["detail"]
@@ -300,12 +273,9 @@ def test_ai_insight_schema_invalid_returns_502(
         {"title": "Missing required fields"}
     )
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/insight",
-        headers=headers,
-    )
+    response = client.get("/dashboard/insight")
 
     assert response.status_code == 502
     assert "temporarily unavailable" in response.json()["detail"]

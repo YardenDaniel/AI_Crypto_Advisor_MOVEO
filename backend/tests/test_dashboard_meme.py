@@ -25,23 +25,16 @@ def signup_login_and_set_preferences(client):
         },
     )
 
-    token = login_response.json()["access_token"]
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-    }
+    assert login_response.status_code == 200
 
     client.post(
         "/preferences",
-        headers=headers,
         json={
             "assets": ["BTC", "SOL"],
             "investor_type": "hodler",
             "content_types": ["fun"],
         },
     )
-
-    return headers
 
 
 @patch(
@@ -61,12 +54,9 @@ def test_dashboard_meme_returns_reddit_meme(
         source_url="https://reddit.com/example",
     )
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/meme",
-        headers=headers,
-    )
+    response = client.get("/dashboard/meme")
 
     assert response.status_code == 200
 
@@ -93,12 +83,9 @@ def test_dashboard_meme_uses_static_fallback(
 
     mock_get_meme.return_value = None
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/meme",
-        headers=headers,
-    )
+    response = client.get("/dashboard/meme")
 
     assert response.status_code == 200
 
@@ -121,12 +108,9 @@ def test_dashboard_meme_uses_fallback_when_reddit_fails(
         "Reddit unavailable"
     )
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/meme",
-        headers=headers,
-    )
+    response = client.get("/dashboard/meme")
 
     assert response.status_code == 200
 
