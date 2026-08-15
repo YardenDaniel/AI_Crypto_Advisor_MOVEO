@@ -1,5 +1,8 @@
-def signup_login_and_set_preferences(client):
+def signup_login_and_set_preferences(client, assets=None):
     """Create a user, log in, and configure crypto preferences."""
+
+    if assets is None:
+        assets = ["BTC", "SOL"]
 
     client.post(
         "/auth/signup",
@@ -28,7 +31,7 @@ def signup_login_and_set_preferences(client):
         "/preferences",
         headers=headers,
         json={
-            "assets": ["BTC", "SOL"],
+            "assets": assets,
             "investor_type": "hodler",
             "content_types": ["market_news"],
         },
@@ -37,10 +40,20 @@ def signup_login_and_set_preferences(client):
     return headers
 
 
+def _instrument_codes(news):
+    """Collect all instrument codes present across the news feed."""
+
+    return {
+        instrument["code"]
+        for item in news
+        for instrument in item["instruments"]
+    }
+
+
 def test_dashboard_news_returns_preferred_assets(client):
     """Test that market news matches the user's preferred crypto assets."""
 
-    headers = signup_login_and_set_preferences(client)
+    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
 
     response = client.get(
         "/dashboard/news",
@@ -49,20 +62,34 @@ def test_dashboard_news_returns_preferred_assets(client):
 
     assert response.status_code == 200
 
-    data = response.json()
+    news = response.json()["news"]
+    codes = _instrument_codes(news)
 
-    assert len(data["news"]) == 2
+    assert "BTC" in codes
+    assert "SOL" in codes
 
-    titles = [item["title"] for item in data["news"]]
 
-    assert "Bitcoin Market Update" in titles
-    assert "Solana Market Update" in titles
+def test_dashboard_news_includes_general_crypto_news(client):
+    """Test that General Crypto News (no instruments) is always included."""
+
+    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
+
+    response = client.get(
+        "/dashboard/news",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    news = response.json()["news"]
+
+    assert any(item["instruments"] == [] for item in news)
 
 
 def test_dashboard_news_excludes_unselected_assets(client):
-    """Test that news for unselected assets is not returned."""
+    """Test that asset-specific news for unselected assets is not returned."""
 
-    headers = signup_login_and_set_preferences(client)
+    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
 
     response = client.get(
         "/dashboard/news",
@@ -71,12 +98,57 @@ def test_dashboard_news_excludes_unselected_assets(client):
 
     assert response.status_code == 200
 
-    titles = [
-        item["title"]
-        for item in response.json()["news"]
-    ]
+    codes = _instrument_codes(response.json()["news"])
 
-    assert "Ethereum Market Update" not in titles
+    assert "ETH" not in codes
+
+
+def test_dashboard_news_sorted_newest_to_oldest(client):
+    """Test that the news feed is ordered from newest to oldest."""
+
+    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
+
+    response = client.get(
+        "/dashboard/news",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    published = [item["published_at"] for item in response.json()["news"]]
+
+    # Items without a verified date (published_at is None) sort last; normalize
+    # to "" so the comparison mirrors the service's sort key and never raises.
+    normalized = [value or "" for value in published]
+
+    assert normalized == sorted(normalized, reverse=True)
+
+
+def test_dashboard_news_item_structure(client):
+    """Test that each news item exposes the new CryptoPanic-style structure."""
+
+    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
+
+    response = client.get(
+        "/dashboard/news",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    news = response.json()["news"]
+
+    assert len(news) > 0
+
+    for item in news:
+        assert "id" in item
+        assert "title" in item
+        assert "source" in item
+        assert "title" in item["source"]
+        assert "published_at" in item
+        assert "instruments" in item
+        assert "url" in item
+        assert item["origin"] == "static_fallback"
 
 
 def test_dashboard_news_without_token(client):

@@ -1,27 +1,43 @@
 from app.constants.market_news import STATIC_MARKET_NEWS
 from app.schemas.dashboard import MarketNewsItem
 
+NEWS_FEED_LIMIT = 10
+
 
 def get_market_news(
     assets: list[str],
 ) -> list[MarketNewsItem]:
-    """Return static market news relevant to the user's preferred assets."""
+    """Return a CryptoPanic-style news feed filtered by the user's assets.
 
-    news_items: list[MarketNewsItem] = []
+    Includes articles that mention at least one of the user's preferred
+    assets, plus General Crypto News (items with no instruments). Results are
+    de-duplicated by ``id``, sorted from newest to oldest, and limited.
+    """
 
-    for asset in assets:
-        asset_news = STATIC_MARKET_NEWS.get(asset, [])
+    user_assets = set(assets or [])
 
-        for item in asset_news:
-            news_items.append(
-                MarketNewsItem(
-                    title=item["title"],
-                    subtitle=item["subtitle"],
-                    source=item["source"],
-                    published_at=item["published_at"],
-                    url=item["url"],
-                    image=item["image"],
-                )
-            )
+    selected: list[dict] = []
+    seen_ids: set[str] = set()
 
-    return news_items
+    for item in STATIC_MARKET_NEWS:
+        item_codes = {instrument["code"] for instrument in item["instruments"]}
+        is_general = not item_codes
+        matches_user_assets = bool(user_assets & item_codes)
+
+        if not (is_general or matches_user_assets):
+            continue
+
+        if item["id"] in seen_ids:
+            continue
+
+        seen_ids.add(item["id"])
+        selected.append(item)
+
+    selected.sort(
+        key=lambda item: item.get("published_at") or "",
+        reverse=True,
+    )
+
+    limited = selected[:NEWS_FEED_LIMIT]
+
+    return [MarketNewsItem(**item) for item in limited]

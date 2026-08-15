@@ -15,15 +15,32 @@ class CoinPricesResponse(BaseModel):
 
     prices: list[CoinPriceResponse]
 
+class NewsSource(BaseModel):
+    """Publisher of a market news article."""
+
+    title: str
+    domain: str | None = None
+
+
+class NewsInstrument(BaseModel):
+    """A crypto asset mentioned in a market news article."""
+
+    code: str
+    title: str | None = None
+
+
 class MarketNewsItem(BaseModel):
     """A single market news article displayed on the dashboard."""
 
+    id: str
     title: str
-    subtitle: str | None
-    source: str
-    published_at: str | None
-    url: str | None
-    image: str | None
+    description: str | None = None
+    source: NewsSource
+    published_at: str | None = None
+    instruments: list[NewsInstrument]
+    url: str | None = None
+    image: str | None = None
+    origin: str = "static_fallback"
 
 
 class MarketNewsResponse(BaseModel):
