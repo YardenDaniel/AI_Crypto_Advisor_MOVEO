@@ -1,5 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
+import httpx
+
 
 def signup_login_and_set_preferences(client):
     """Create a user, log in, and configure crypto preferences."""
@@ -126,3 +128,34 @@ def test_dashboard_prices_without_token(client):
     response = client.get("/dashboard/prices")
 
     assert response.status_code == 401
+
+
+@patch(
+    "app.api.endpoints.dashboard.coin_prices.CoinGeckoClient.get_prices",
+    new_callable=AsyncMock,
+)
+def test_dashboard_prices_coingecko_failure_degrades_gracefully(
+    mock_get_prices,
+    client,
+):
+    """A CoinGecko failure returns empty prices (200), not a raw 500."""
+
+    mock_get_prices.side_effect = httpx.HTTPError("CoinGecko unavailable")
+
+    headers = signup_login_and_set_preferences(client)
+
+    response = client.get(
+        "/dashboard/prices",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["prices"] == []
+
+    # The section still exposes feedback metadata (independence preserved).
+    assert data["feedback"] is not None
+    assert data["feedback"]["vote"] == "none"
+    assert data["feedback"]["can_vote"] is True

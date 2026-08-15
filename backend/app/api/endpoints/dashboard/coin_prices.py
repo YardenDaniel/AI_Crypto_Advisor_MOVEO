@@ -1,3 +1,4 @@
+import httpx
 from fastapi import APIRouter, Depends
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
@@ -48,10 +49,16 @@ async def get_dashboard_prices(
 
     client = CoinGeckoClient()
 
-    prices = await get_coin_prices(
-        assets=preferences.assets,
-        client=client,
-    )
+    try:
+        prices = await get_coin_prices(
+            assets=preferences.assets,
+            client=client,
+        )
+    except httpx.HTTPError:
+        # CoinGecko is unavailable/timed out. Degrade gracefully to an empty
+        # price list instead of returning a raw 500, keeping this section
+        # independent of the others.
+        prices = []
 
     content_snapshot = {
         "prices": [

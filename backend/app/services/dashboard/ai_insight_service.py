@@ -1,6 +1,8 @@
 import json
 from datetime import datetime, timedelta, timezone
 
+import httpx
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,14 @@ from app.schemas.dashboard import (
 )
 from app.services.dashboard.coin_price_service import get_coin_prices
 from app.services.dashboard.market_news_service import get_market_news
+
+
+class AIInsightGenerationError(Exception):
+    """Raised when a usable AI insight cannot be produced from the provider.
+
+    Covers upstream provider failures (network/HTTP errors) and unusable
+    responses (malformed envelope, invalid JSON, or schema validation errors).
+    """
 
 
 def get_today_ai_insight(
@@ -138,10 +148,16 @@ async def generate_ai_insight(
     coin_gecko_client = CoinGeckoClient()
     openrouter_client = OpenRouterClient()
 
-    prices = await get_coin_prices(
-        assets=assets,
-        client=coin_gecko_client,
-    )
+    try:
+        prices = await get_coin_prices(
+            assets=assets,
+            client=coin_gecko_client,
+        )
+    except httpx.HTTPError:
+        # CoinGecko is optional context. If it is unavailable, continue with
+        # no price data so the insight can still be generated (the prompt
+        # already handles the "no market price data" case).
+        prices = []
 
     news = get_market_news(
         assets=assets,
@@ -154,13 +170,28 @@ async def generate_ai_insight(
         news=news,
     )
 
-    raw_response = await openrouter_client.generate_insight(
-        system_prompt=AI_INSIGHT_SYSTEM_PROMPT,
-        user_prompt=user_prompt,
-    )
+    try:
+        raw_response = await openrouter_client.generate_insight(
+            system_prompt=AI_INSIGHT_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+        )
 
-    parsed_response = json.loads(raw_response)
+        parsed_response = json.loads(raw_response)
 
-    return AIInsightResponse.model_validate(
-        parsed_response
-    )
+        return AIInsightResponse.model_validate(
+            parsed_response
+        )
+    except (
+        httpx.HTTPError,
+        ValueError,
+        KeyError,
+        IndexError,
+        TypeError,
+        ValidationError,
+    ) as exc:
+        # Covers provider outages/HTTP errors, missing choices/message/content,
+        # invalid JSON (JSONDecodeError is a ValueError), and schema validation
+        # failures. Raw provider details are not surfaced to the caller.
+        raise AIInsightGenerationError(
+            "Failed to generate a valid AI insight from the provider."
+        ) from exc
