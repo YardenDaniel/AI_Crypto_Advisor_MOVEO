@@ -55,3 +55,12 @@ class MemeResponse(BaseModel):
     image_url: str | None
     source: str
     source_url: str | None
+
+class AIInsightResponse(BaseModel):
+    """Structured AI insight displayed on the dashboard."""
+
+    title: str
+    summary: str
+    key_points: list[str]
+    watch_for: str
+    risk_note: str
