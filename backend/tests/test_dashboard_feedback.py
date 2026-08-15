@@ -439,19 +439,36 @@ def test_meme_response_has_feedback(mock_get_meme, client, db):
 
 @patch(REDDIT_GET_MEME, new_callable=AsyncMock)
 def test_meme_same_meme_reuses_feedback_id(mock_get_meme, client, db):
-    """Returning the same meme again reuses the same feedback record."""
+    """Seeing a meme again reuses its feedback record.
 
-    mock_get_meme.return_value = fixed_meme()
+    Consecutive requests rotate away from the meme just shown, so the same
+    meme is revisited on the third request.
+    """
+
+    other_meme = MemeResponse(
+        title="Another Bitcoin meme",
+        image_url="https://example.com/bitcoin-2.png",
+        source="Reddit",
+        source_url="https://www.reddit.com/r/cryptomemes/comments/def456",
+    )
+    mock_get_meme.side_effect = [
+        fixed_meme(),
+        other_meme,
+        fixed_meme(),
+    ]
 
     register_user(client, "meme-refresh@example.com", assets=["BTC"])
 
     first = client.get("/dashboard/meme")
     second = client.get("/dashboard/meme")
+    third = client.get("/dashboard/meme")
 
     assert first.status_code == 200
     assert second.status_code == 200
+    assert third.status_code == 200
 
-    assert first.json()["feedback"]["id"] == second.json()["feedback"]["id"]
+    assert first.json()["feedback"]["id"] != second.json()["feedback"]["id"]
+    assert first.json()["feedback"]["id"] == third.json()["feedback"]["id"]
 
     count = db.scalar(
         select(func.count())
@@ -459,7 +476,7 @@ def test_meme_same_meme_reuses_feedback_id(mock_get_meme, client, db):
         .where(DashboardFeedback.section == "meme")
     )
 
-    assert count == 1
+    assert count == 2
 
 
 # ---------------------------------------------------------------------------

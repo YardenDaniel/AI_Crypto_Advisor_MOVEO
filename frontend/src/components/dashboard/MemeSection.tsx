@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Maximize2 } from 'lucide-react'
+import { Maximize2, RefreshCw } from 'lucide-react'
+import { Button } from '../common/Button'
 import { ImageLightbox } from '../common/ImageLightbox'
 import { SectionCard } from '../common/SectionCard'
 import { Skeleton } from '../common/Skeleton'
@@ -33,6 +34,27 @@ export function MemeSection() {
     <SectionCard
       title="Crypto Meme"
       className="lg:flex lg:h-full lg:min-h-0 lg:flex-col"
+      action={
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="shrink-0 gap-1.5"
+          // Refetches only ['dashboard', 'meme']; the other sections keep
+          // their cached data.
+          onClick={() => {
+            void memeQuery.refetch()
+          }}
+          disabled={memeQuery.isFetching}
+          aria-busy={memeQuery.isFetching || undefined}
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${memeQuery.isFetching ? 'animate-spin' : ''}`}
+            aria-hidden="true"
+          />
+          New meme
+        </Button>
+      }
     >
       {memeQuery.isPending ? <MemeSectionSkeleton /> : null}
 
@@ -87,7 +109,10 @@ export function MemeSection() {
               <p className="mt-1 text-sm text-muted">{memeQuery.data.source}</p>
             )}
             {memeQuery.data.feedback ? (
+              // Keyed so a replacement meme gets its own vote controls
+              // instead of inheriting the previous meme's voted state.
               <VoteControls
+                key={memeQuery.data.feedback.id}
                 feedback={memeQuery.data.feedback}
                 className="mt-4"
               />

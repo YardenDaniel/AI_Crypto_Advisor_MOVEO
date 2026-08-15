@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from app.constants.memes import ASSET_MEME_KEYWORDS
 from app.core.config import settings
 from app.schemas.dashboard import MemeResponse
+from app.services.dashboard.meme_identity import build_meme_item_id
 
 
 class RedditMemeScraper:
@@ -14,8 +15,11 @@ class RedditMemeScraper:
     async def get_meme(
         self,
         assets: list[str],
+        exclude_item_ids: set[str] | None = None,
     ) -> MemeResponse | None:
         """Return a Reddit meme relevant to the user's preferred assets."""
+
+        excluded = exclude_item_ids or set()
 
         async with httpx.AsyncClient(
             timeout=10.0,
@@ -73,12 +77,22 @@ class RedditMemeScraper:
             ):
                 relevant_memes.append(meme)
 
-        meme = await self._choose_available_meme(relevant_memes)
+        # Prefer a relevant meme the user has not just seen, then any other
+        # meme. Only when every pool is exhausted may an excluded meme be
+        # repeated, so a narrow relevant pool cannot pin the user to one meme.
+        for pool in (relevant_memes, all_memes):
+            meme = await self._choose_available_meme(pool, excluded)
 
-        if meme is not None:
-            return meme
+            if meme is not None:
+                return meme
 
-        return await self._choose_available_meme(all_memes)
+        for pool in (relevant_memes, all_memes):
+            meme = await self._choose_available_meme(pool)
+
+            if meme is not None:
+                return meme
+
+        return None
 
     @staticmethod
     def _get_keywords(assets: list[str]) -> list[str]:
@@ -131,17 +145,27 @@ class RedditMemeScraper:
     async def _choose_available_meme(
         self,
         memes: list[MemeResponse],
+        exclude_item_ids: set[str] | None = None,
     ) -> MemeResponse | None:
-        """Choose a meme whose image is still available."""
+        """Choose a meme whose image is still available.
+
+        Excluded memes (the ones just shown) are never returned here; the
+        caller decides whether repeating one is acceptable.
+        """
+
+        excluded = exclude_item_ids or set()
 
         candidates = memes.copy()
         random.shuffle(candidates)
 
         for meme in candidates:
-            if (
-                meme.image_url
-                and await self._is_image_available(meme.image_url)
-            ):
+            if not meme.image_url:
+                continue
+
+            if build_meme_item_id(meme) in excluded:
+                continue
+
+            if await self._is_image_available(meme.image_url):
                 return meme
 
         return None

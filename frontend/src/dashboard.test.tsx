@@ -302,6 +302,137 @@ describe('meme', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('requests a new meme without refetching the other sections', async () => {
+    const event = userEvent.setup()
+    const replacement = {
+      ...memeResponse,
+      title: 'Diamond hands',
+      image_url: '/memes/meme4.png',
+      feedback: { id: 31, vote: 'none' as const, can_vote: true },
+    }
+    vi.mocked(getMeme)
+      .mockResolvedValueOnce(memeResponse)
+      .mockResolvedValue(replacement)
+
+    renderApp('/')
+    await findDashboard()
+    expect(
+      await screen.findByRole('img', { name: 'HODL through the dip' }),
+    ).toBeInTheDocument()
+
+    expect(getMeme).toHaveBeenCalledOnce()
+    expect(getCoinPrices).toHaveBeenCalledOnce()
+    expect(getMarketNews).toHaveBeenCalledOnce()
+    expect(getAiInsight).toHaveBeenCalledOnce()
+
+    await event.click(
+      section('Crypto Meme').getByRole('button', { name: 'New meme' }),
+    )
+
+    expect(
+      await screen.findByRole('img', { name: 'Diamond hands' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('img', { name: 'HODL through the dip' }),
+    ).not.toBeInTheDocument()
+
+    expect(getMeme).toHaveBeenCalledTimes(2)
+    expect(getCoinPrices).toHaveBeenCalledOnce()
+    expect(getMarketNews).toHaveBeenCalledOnce()
+    expect(getAiInsight).toHaveBeenCalledOnce()
+  })
+
+  it('disables New meme while the replacement is loading and keeps the current meme visible', async () => {
+    const event = userEvent.setup()
+    let resolveSecond: ((value: typeof memeResponse) => void) | undefined
+    vi.mocked(getMeme)
+      .mockResolvedValueOnce(memeResponse)
+      .mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve
+          }),
+      )
+
+    renderApp('/')
+    await findDashboard()
+    expect(
+      await screen.findByRole('img', { name: 'HODL through the dip' }),
+    ).toBeInTheDocument()
+
+    const newMeme = section('Crypto Meme').getByRole('button', {
+      name: 'New meme',
+    })
+    expect(newMeme).toBeEnabled()
+
+    await event.click(newMeme)
+
+    expect(newMeme).toBeDisabled()
+    expect(
+      screen.getByRole('img', { name: 'HODL through the dip' }),
+    ).toBeInTheDocument()
+
+    resolveSecond?.({ ...memeResponse, title: 'Diamond hands' })
+
+    expect(
+      await screen.findByRole('img', { name: 'Diamond hands' }),
+    ).toBeInTheDocument()
+    await vi.waitFor(() => {
+      expect(
+        section('Crypto Meme').getByRole('button', { name: 'New meme' }),
+      ).toBeEnabled()
+    })
+  })
+
+  it('keeps the lightbox and voting usable for a replacement meme', async () => {
+    const event = userEvent.setup()
+    vi.mocked(submitVote).mockResolvedValue({
+      id: 30,
+      vote: 'up',
+      can_vote: false,
+    })
+    vi.mocked(getMeme)
+      .mockResolvedValueOnce(memeResponse)
+      .mockResolvedValue({
+        ...memeResponse,
+        title: 'Diamond hands',
+        image_url: '/memes/meme4.png',
+        feedback: { id: 31, vote: 'none', can_vote: true },
+      })
+
+    renderApp('/')
+    await findDashboard()
+    expect(
+      await screen.findByRole('img', { name: 'HODL through the dip' }),
+    ).toBeInTheDocument()
+
+    await event.click(
+      section('Crypto Meme').getByRole('button', { name: 'Mark as useful' }),
+    )
+    expect(submitVote).toHaveBeenCalledWith(30, { value: 'up' })
+
+    await event.click(
+      section('Crypto Meme').getByRole('button', { name: 'New meme' }),
+    )
+    expect(
+      await screen.findByRole('img', { name: 'Diamond hands' }),
+    ).toBeInTheDocument()
+
+    // The replacement meme can be voted on and enlarged.
+    expect(
+      section('Crypto Meme').getByText('Was this useful?'),
+    ).toBeInTheDocument()
+
+    await event.click(
+      screen.getByRole('button', { name: 'Enlarge meme: Diamond hands' }),
+    )
+
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog).getByRole('img', { name: 'Diamond hands' }),
+    ).toHaveAttribute('src', '/memes/meme4.png')
+  })
+
   it('closes the enlarged meme with Escape or a click outside it', async () => {
     const event = userEvent.setup()
 
