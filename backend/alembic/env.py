@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.models.user import User
 from app.db.models.preference import Preference
+from app.db.models.ai_insight import AIInsight
 
 # Alembic configuration object.
 config = context.config

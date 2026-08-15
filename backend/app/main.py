@@ -11,6 +11,12 @@ from app.api.endpoints.dashboard.market_news import (
 from app.api.endpoints.dashboard.meme import (
     router as dashboard_meme_router,
 )
+from app.api.endpoints.dashboard.ai_insight import (
+    router as dashboard_ai_insight_router,
+)
+
+
+
 app = FastAPI()
 
 app.include_router(auth_router)
@@ -18,6 +24,7 @@ app.include_router(preferences_router)
 app.include_router(dashboard_coin_prices_router)
 app.include_router(dashboard_market_news_router)
 app.include_router(dashboard_meme_router)
+app.include_router(dashboard_ai_insight_router)
 @app.get("/health")
 def health_check():
     return {"status": "ok"}

@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     reddit_meme_url: str
     reddit_user_agent: str
 
+    # OpenRouter LLM configuration
+    openrouter_base_url: str
+    openrouter_api_key: str
+    openrouter_model: str
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
