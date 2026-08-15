@@ -21,23 +21,16 @@ def signup_login_and_set_preferences(client, assets=None):
         },
     )
 
-    token = login_response.json()["access_token"]
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-    }
+    assert login_response.status_code == 200
 
     client.post(
         "/preferences",
-        headers=headers,
         json={
             "assets": assets,
             "investor_type": "hodler",
             "content_types": ["market_news"],
         },
     )
-
-    return headers
 
 
 def _instrument_codes(news):
@@ -53,12 +46,9 @@ def _instrument_codes(news):
 def test_dashboard_news_returns_preferred_assets(client):
     """Test that market news matches the user's preferred crypto assets."""
 
-    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
+    signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
 
-    response = client.get(
-        "/dashboard/news",
-        headers=headers,
-    )
+    response = client.get("/dashboard/news")
 
     assert response.status_code == 200
 
@@ -72,12 +62,9 @@ def test_dashboard_news_returns_preferred_assets(client):
 def test_dashboard_news_includes_general_crypto_news(client):
     """Test that General Crypto News (no instruments) is always included."""
 
-    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
+    signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
 
-    response = client.get(
-        "/dashboard/news",
-        headers=headers,
-    )
+    response = client.get("/dashboard/news")
 
     assert response.status_code == 200
 
@@ -89,12 +76,9 @@ def test_dashboard_news_includes_general_crypto_news(client):
 def test_dashboard_news_excludes_unselected_assets(client):
     """Test that asset-specific news for unselected assets is not returned."""
 
-    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
+    signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
 
-    response = client.get(
-        "/dashboard/news",
-        headers=headers,
-    )
+    response = client.get("/dashboard/news")
 
     assert response.status_code == 200
 
@@ -106,12 +90,9 @@ def test_dashboard_news_excludes_unselected_assets(client):
 def test_dashboard_news_sorted_newest_to_oldest(client):
     """Test that the news feed is ordered from newest to oldest."""
 
-    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
+    signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
 
-    response = client.get(
-        "/dashboard/news",
-        headers=headers,
-    )
+    response = client.get("/dashboard/news")
 
     assert response.status_code == 200
 
@@ -127,12 +108,9 @@ def test_dashboard_news_sorted_newest_to_oldest(client):
 def test_dashboard_news_item_structure(client):
     """Test that each news item exposes the new CryptoPanic-style structure."""
 
-    headers = signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
+    signup_login_and_set_preferences(client, assets=["BTC", "SOL"])
 
-    response = client.get(
-        "/dashboard/news",
-        headers=headers,
-    )
+    response = client.get("/dashboard/news")
 
     assert response.status_code == 200
 

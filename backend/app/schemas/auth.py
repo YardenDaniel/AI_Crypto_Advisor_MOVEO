@@ -26,10 +26,3 @@ class UserResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
-
-
-class TokenResponse(BaseModel):
-    """JWT response returned after successful authentication."""
-
-    access_token: str
-    token_type: str = "bearer"

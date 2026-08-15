@@ -23,23 +23,16 @@ def signup_login_and_set_preferences(client):
         },
     )
 
-    token = login_response.json()["access_token"]
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-    }
+    assert login_response.status_code == 200
 
     client.post(
         "/preferences",
-        headers=headers,
         json={
             "assets": ["BTC", "SOL"],
             "investor_type": "hodler",
             "content_types": ["market_news", "charts"],
         },
     )
-
-    return headers
 
 
 @patch(
@@ -65,12 +58,9 @@ def test_dashboard_returns_preferred_coin_prices(
         },
     }
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/prices",
-        headers=headers,
-    )
+    response = client.get("/dashboard/prices")
 
     assert response.status_code == 200
 
@@ -108,12 +98,9 @@ def test_dashboard_uses_user_preferred_assets(
         },
     }
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/prices",
-        headers=headers,
-    )
+    response = client.get("/dashboard/prices")
 
     assert response.status_code == 200
 
@@ -142,12 +129,9 @@ def test_dashboard_prices_coingecko_failure_degrades_gracefully(
 
     mock_get_prices.side_effect = httpx.HTTPError("CoinGecko unavailable")
 
-    headers = signup_login_and_set_preferences(client)
+    signup_login_and_set_preferences(client)
 
-    response = client.get(
-        "/dashboard/prices",
-        headers=headers,
-    )
+    response = client.get("/dashboard/prices")
 
     assert response.status_code == 200
 

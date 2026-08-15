@@ -58,7 +58,8 @@ def client(db):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app) as test_client:
+    # HTTPS is required so Secure cookies (SameSite=none) are stored and sent.
+    with TestClient(app, base_url="https://testserver") as test_client:
         yield test_client
 
     app.dependency_overrides.clear()
